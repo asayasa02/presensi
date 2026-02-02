@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Home - Absensi Guru</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="guru-page">
+    <header class="guru-header">
+        <div class="header-top">
+            <div class="header-date" id="currentDate"></div>
+            <div class="header-avatar" id="userAvatar"></div>
+        </div>
+        <div class="header-greeting" id="greeting"></div>
+        
+        <div class="user-card">
+            <div class="user-card-avatar" id="userCardAvatar"></div>
+            <div class="user-card-info">
+                <h3 id="userName"></h3>
+                <p id="userNIP"></p>
+                <span class="badge badge-info" id="userMapel"></span>
+            </div>
+        </div>
+    </header>
+    
+    <main class="guru-main">
+        <div class="card status-card" id="statusCard">
+            <div class="status-icon" id="statusIcon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="status-info">
+                <h4 id="statusTitle">Memuat...</h4>
+                <p id="statusDesc"></p>
+            </div>
+            <div class="status-badge" id="statusBadge"></div>
+        </div>
+        
+        <div class="menu-grid">
+            <a href="scan.html" class="menu-card">
+                <div class="menu-icon bg-primary">
+                    <i class="fas fa-qrcode"></i>
+                </div>
+                <h4>Presensi</h4>
+                <p>Scan QR Code</p>
+            </a>
+            <a href="izin.html" class="menu-card">
+                <div class="menu-icon bg-warning">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <h4>Izin</h4>
+                <p>Ajukan Izin</p>
+            </a>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3>Minggu Ini</h3>
+            </div>
+            <div class="weekly-calendar" id="weeklyCalendar"></div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3>Statistik Bulan Ini</h3>
+                <span class="badge badge-info" id="currentMonth"></span>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value text-success" id="statHadir">0</div>
+                    <div class="stat-label">Hadir</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value text-warning" id="statTerlambat">0</div>
+                    <div class="stat-label">Terlambat</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value text-danger" id="statIzin">0</div>
+                    <div class="stat-label">Izin</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value text-primary" id="statPersentase">0%</div>
+                    <div class="stat-label">Kehadiran</div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <nav class="bottom-nav">
+        <a href="home.html" class="nav-item active">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </a>
+        <a href="riwayat.html" class="nav-item">
+            <i class="fas fa-history"></i>
+            <span>Riwayat</span>
+        </a>
+        <a href="profil.html" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>Profil</span>
+        </a>
+        <a href="#" class="nav-item" id="btnLogout">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Keluar</span>
+        </a>
+    </nav>
+    
+    <script src="../js/storage.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const session = getSession();
+            if (!session || session.role !== 'guru') {
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            const user = getUserById(session.id);
+            if (!user) {
+                clearSession();
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            // Set date
+            document.getElementById('currentDate').textContent = formatDate(new Date());
+            
+            // Set greeting
+            document.getElementById('greeting').innerHTML = getGreeting();
+            
+            // Set user info
+            const initial = getInitials(user.nama);
+            document.getElementById('userAvatar').textContent = initial;
+            document.getElementById('userCardAvatar').textContent = initial;
+            document.getElementById('userName').textContent = user.nama;
+            document.getElementById('userNIP').textContent = 'NIP: ' + user.nip;
+            document.getElementById('userMapel').textContent = user.mapel;
+            
+            // Get today's status
+            updateTodayStatus(user.id);
+            
+            // Generate weekly calendar
+            generateWeeklyCalendar(user.id);
+            
+            // Calculate monthly stats
+            calculateMonthlyStats(user.id);
+            
+            // Set current month
+            const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                           'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            document.getElementById('currentMonth').textContent = months[new Date().getMonth()];
+            
+            // Logout handler
+            document.getElementById('btnLogout').addEventListener('click', function(e) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Logout?',
+                    text: 'Apakah Anda yakin ingin keluar?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Ya, Keluar',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        clearSession();
+                        window.location.href = '../login.html';
+                    }
+                });
+            });
+        });
+        
+        function updateTodayStatus(userId) {
+            const today = new Date().toISOString().split('T')[0];
+            const attendance = getTodayAttendance(userId);
+            const leaves = getLeaves().filter(l => l.userId === userId && l.tanggal === today);
+            
+            const statusCard = document.getElementById('statusCard');
+            const statusIcon = document.getElementById('statusIcon');
+            const statusTitle = document.getElementById('statusTitle');
+            const statusDesc = document.getElementById('statusDesc');
+            const statusBadge = document.getElementById('statusBadge');
+            
+            // Reset classes
+            statusCard.className = 'card status-card';
+            
+            if (attendance) {
+                statusCard.classList.add('status-success');
+                statusIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
+                statusTitle.textContent = 'Sudah Presensi';
+                statusDesc.textContent = 'Jam masuk: ' + attendance.jamMasuk;
+                
+                let badges = '';
+                if (attendance.status === 'terlambat') {
+                    badges += '<span class="badge badge-warning">Terlambat</span> ';
+                } else {
+                    badges += '<span class="badge badge-success">Tepat Waktu</span> ';
+                }
+                
+                if (attendance.validated) {
+                    badges += '<span class="badge badge-success">Tervalidasi</span>';
+                } else {
+                    badges += '<span class="badge badge-pending">Menunggu Validasi</span>';
+                }
+                statusBadge.innerHTML = badges;
+                
+            } else if (leaves.length > 0) {
+                const leave = leaves[0];
+                statusCard.classList.add('status-warning');
+                statusIcon.innerHTML = '<i class="fas fa-file-alt"></i>';
+                statusTitle.textContent = 'Pengajuan Izin';
+                statusDesc.textContent = leave.jenis;
+                
+                let badge = '';
+                if (leave.status === 'pending') {
+                    badge = '<span class="badge badge-pending">Menunggu Persetujuan</span>';
+                } else if (leave.status === 'approved') {
+                    badge = '<span class="badge badge-success">Disetujui</span>';
+                } else {
+                    badge = '<span class="badge badge-danger">Ditolak</span>';
+                }
+                statusBadge.innerHTML = badge;
+                
+            } else {
+                statusCard.classList.add('status-pending');
+                statusIcon.innerHTML = '<i class="fas fa-clock"></i>';
+                statusTitle.textContent = 'Belum Presensi';
+                statusDesc.textContent = 'Silakan scan QR Code untuk presensi';
+                statusBadge.innerHTML = '';
+            }
+        }
+        
+        function generateWeeklyCalendar(userId) {
+            const calendar = document.getElementById('weeklyCalendar');
+            const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+            const today = new Date();
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - today.getDay() + 1);
+            
+            let html = '';
+            
+            for (let i = 0; i < 6; i++) {
+                const date = new Date(startOfWeek);
+                date.setDate(startOfWeek.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+                const isToday = dateStr === today.toISOString().split('T')[0];
+                
+                const attendance = getAttendances().find(a => 
+                    a.userId === userId && a.tanggal === dateStr
+                );
+                const leave = getLeaves().find(l => 
+                    l.userId === userId && l.tanggal === dateStr
+                );
+                
+                let status = '-';
+                let statusClass = '';
+                
+                if (attendance) {
+                    status = '✓';
+                    statusClass = 'status-hadir';
+                } else if (leave) {
+                    if (leave.status === 'approved') {
+                        status = '!';
+                        statusClass = 'status-izin';
+                    } else if (leave.status === 'pending') {
+                        status = '?';
+                        statusClass = 'status-pending';
+                    }
+                } else if (date < today && date.getDay() !== 0) {
+                    status = '-';
+                    statusClass = 'status-absent';
+                }
+                
+                html += `
+                    <div class="calendar-day ${isToday ? 'today' : ''} ${statusClass}">
+                        <span class="day-name">${days[date.getDay()]}</span>
+                        <span class="day-date">${date.getDate()}</span>
+                        <span class="day-status">${status}</span>
+                    </div>
+                `;
+            }
+            
+            calendar.innerHTML = html;
+        }
+        
+        function calculateMonthlyStats(userId) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            
+            const attendances = getAttendances().filter(a => {
+                const date = new Date(a.tanggal);
+                return a.userId === userId && 
+                       date.getFullYear() === year && 
+                       date.getMonth() === month;
+            });
+            
+            const leaves = getLeaves().filter(l => {
+                const date = new Date(l.tanggal);
+                return l.userId === userId && 
+                       l.status === 'approved' &&
+                       date.getFullYear() === year && 
+                       date.getMonth() === month;
+            });
+            
+            const hadir = attendances.filter(a => a.status === 'hadir').length;
+            const terlambat = attendances.filter(a => a.status === 'terlambat').length;
+            const izin = leaves.length;
+            
+            const todayDate = now.getDate();
+            let workingDaysUntilToday = 0;
+            for (let d = 1; d <= todayDate; d++) {
+                const day = new Date(year, month, d).getDay();
+                if (day !== 0) workingDaysUntilToday++;
+            }
+            
+            const totalHadir = hadir + terlambat;
+            const persentase = workingDaysUntilToday > 0 
+                ? Math.round((totalHadir / workingDaysUntilToday) * 100) 
+                : 0;
+            
+            document.getElementById('statHadir').textContent = hadir;
+            document.getElementById('statTerlambat').textContent = terlambat;
+            document.getElementById('statIzin').textContent = izin;
+            document.getElementById('statPersentase').textContent = persentase + '%';
+        }
+    </script>
+</body>
+</html>

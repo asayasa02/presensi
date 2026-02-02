@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <title>Scan QR - Absensi Guru</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="scan-page">
+    <div class="scanner-container" id="scannerView">
+        <header class="scanner-header">
+            <a href="home.html" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1>Scan QR Code</h1>
+            <button class="btn-switch-camera" id="switchCamera">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </header>
+        
+        <div class="scanner-area">
+            <div class="scanner-frame">
+                <div class="corner tl"></div>
+                <div class="corner tr"></div>
+                <div class="corner bl"></div>
+                <div class="corner br"></div>
+                <div class="scan-line"></div>
+                <div id="reader"></div>
+            </div>
+        </div>
+        
+        <div class="scanner-instructions">
+            <i class="fas fa-qrcode"></i>
+            <p>Arahkan kamera ke QR Code yang ditampilkan di layar admin</p>
+        </div>
+    </div>
+    
+    <div class="success-container" id="successView" style="display: none;">
+        <div class="success-content animate-fade-in">
+            <div class="success-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h1>Presensi Berhasil!</h1>
+            
+            <div class="success-details">
+                <div class="detail-item">
+                    <span class="label">Nama</span>
+                    <span class="value" id="successNama"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">NIP</span>
+                    <span class="value" id="successNIP"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Tanggal</span>
+                    <span class="value" id="successTanggal"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Waktu</span>
+                    <span class="value" id="successWaktu"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">Status</span>
+                    <span class="value" id="successStatus"></span>
+                </div>
+            </div>
+            
+            <div class="success-badge">
+                <span class="badge badge-pending">
+                    <i class="fas fa-clock"></i> Menunggu Validasi
+                </span>
+            </div>
+            
+            <a href="home.html" class="btn btn-primary btn-block">
+                <i class="fas fa-home"></i> Kembali ke Home
+            </a>
+        </div>
+    </div>
+    
+    <script src="../js/storage.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        let html5QrCode = null;
+        let currentCamera = 'environment';
+        let isProcessing = false;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const session = getSession();
+            if (!session || session.role !== 'guru') {
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            const todayAttendance = getTodayAttendance(session.id);
+            if (todayAttendance) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sudah Presensi',
+                    text: 'Anda sudah melakukan presensi hari ini pada ' + todayAttendance.jamMasuk,
+                    confirmButtonText: 'Kembali'
+                }).then(() => {
+                    window.location.href = 'home.html';
+                });
+                return;
+            }
+            
+            initScanner();
+            
+            document.getElementById('switchCamera').addEventListener('click', function() {
+                currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
+                if (html5QrCode && html5QrCode.isScanning) {
+                    html5QrCode.stop().then(() => {
+                        initScanner();
+                    }).catch(err => console.error(err));
+                }
+            });
+        });
+        
+        function initScanner() {
+            const readerElement = document.getElementById('reader');
+            
+            html5QrCode = new Html5Qrcode("reader");
+            
+            const config = {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1,
+                showTorchButtonIfSupported: true
+            };
+            
+            html5QrCode.start(
+                { facingMode: currentCamera },
+                config,
+                onScanSuccess,
+                onScanError
+            ).catch(err => {
+                console.error('Camera error:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error Kamera',
+                    text: 'Tidak dapat mengakses kamera. Pastikan Anda memberikan izin akses kamera.',
+                    confirmButtonText: 'Kembali'
+                }).then(() => {
+                    window.location.href = 'home.html';
+                });
+            });
+        }
+        
+        function onScanSuccess(decodedText, decodedResult) {
+            if (isProcessing) return;
+            isProcessing = true;
+            
+            // Stop scanner
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(err => console.error(err));
+            }
+            
+            // Validate QR
+            const validation = validateQR(decodedText);
+            
+            if (!validation.valid) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'QR Tidak Valid',
+                    text: validation.message,
+                    confirmButtonText: 'Coba Lagi'
+                }).then(() => {
+                    isProcessing = false;
+                    initScanner();
+                });
+                return;
+            }
+            
+            // Get session and user
+            const session = getSession();
+            const user = getUserById(session.id);
+            
+            // Check if QR already used by this user
+            const qrData = validation.qrData;
+            if (qrData.usedBy && qrData.usedBy.includes(session.id)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'QR Sudah Digunakan',
+                    text: 'Anda sudah menggunakan QR Code ini.',
+                    confirmButtonText: 'Kembali'
+                }).then(() => {
+                    window.location.href = 'home.html';
+                });
+                return;
+            }
+            
+            // Mark QR as used
+            markQRAsUsed(decodedText, session.id);
+            
+            // Determine status
+            const now = new Date();
+            const jamMasuk = now.toTimeString().substring(0, 5);
+            const settings = getSettings();
+            const batasTerlambat = settings.jam_terlambat || '07:30';
+            const status = jamMasuk > batasTerlambat ? 'terlambat' : 'hadir';
+            
+            // Save attendance
+            const attendance = {
+                id: Date.now(),
+                userId: session.id,
+                tanggal: now.toISOString().split('T')[0],
+                jamMasuk: jamMasuk,
+                status: status,
+                qrCode: decodedText,
+                validated: false,
+                createdAt: now.toISOString()
+            };
+            
+            addAttendance(attendance);
+            
+            // Show success
+            document.getElementById('scannerView').style.display = 'none';
+            document.getElementById('successView').style.display = 'flex';
+            
+            document.getElementById('successNama').textContent = user.nama;
+            document.getElementById('successNIP').textContent = user.nip;
+            document.getElementById('successTanggal').textContent = formatDate(now);
+            document.getElementById('successWaktu').textContent = jamMasuk;
+            
+            const statusBadge = status === 'terlambat' 
+                ? '<span class="badge badge-warning">Terlambat</span>'
+                : '<span class="badge badge-success">Tepat Waktu</span>';
+            document.getElementById('successStatus').innerHTML = statusBadge;
+        }
+        
+        function onScanError(error) {
+            // Ignore scan errors
+        }
+    </script>
+</body>
+</html>

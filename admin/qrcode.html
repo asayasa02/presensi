@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Generate QR - Admin Absensi</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="admin-page">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <i class="fas fa-school"></i>
+            </div>
+            <div class="sidebar-brand">
+                <h2>Absensi Guru</h2>
+                <p id="schoolName">SMP Negeri 1 Contoh</p>
+            </div>
+            <button class="sidebar-close" id="sidebarClose">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="qrcode.html" class="nav-link active">
+                <i class="fas fa-qrcode"></i>
+                <span>Generate QR</span>
+            </a>
+            <a href="data-guru.html" class="nav-link">
+                <i class="fas fa-users"></i>
+                <span>Data Guru</span>
+            </a>
+            <a href="validasi.html" class="nav-link">
+                <i class="fas fa-clipboard-check"></i>
+                <span>Validasi Izin</span>
+                <span class="nav-badge" id="pendingBadge">0</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <a href="#" class="btn btn-danger btn-block" id="btnLogout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+    
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <div class="admin-main">
+        <header class="admin-header">
+            <button class="hamburger" id="hamburger">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1>Generate QR Code</h1>
+            <div class="header-actions">
+                <div class="admin-avatar" id="adminAvatar"></div>
+            </div>
+        </header>
+        
+        <main class="admin-content">
+            <div class="card mb-lg">
+                <div class="card-header">
+                    <h3><i class="fas fa-cog"></i> Pengaturan</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group mb-0">
+                            <label class="form-label">Durasi Session</label>
+                            <select id="duration" class="form-select">
+                                <option value="30">30 Menit</option>
+                                <option value="60">1 Jam</option>
+                                <option value="120" selected>2 Jam</option>
+                                <option value="180">3 Jam</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-primary btn-block" id="btnGenerate">
+                                <i class="fas fa-play"></i> Mulai Session
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card qr-card mb-lg">
+                <div class="card-header">
+                    <h3><i class="fas fa-qrcode"></i> QR Code Presensi</h3>
+                    <div class="qr-actions">
+                        <button class="btn btn-sm btn-ghost" id="btnFullscreen" disabled>
+                            <i class="fas fa-expand"></i> <span class="hide-mobile">Fullscreen</span>
+                        </button>
+                        <button class="btn btn-sm btn-danger" id="btnStop" style="display: none;">
+                            <i class="fas fa-stop"></i> <span class="hide-mobile">Stop</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="qr-container qr-protected" id="qrContainer">
+                    <div class="qr-placeholder" id="qrPlaceholder">
+                        <i class="fas fa-qrcode"></i>
+                        <p>Klik "Mulai Session" untuk membuat QR Code</p>
+                    </div>
+                    <div class="qr-display" id="qrDisplay" style="display: none;">
+                        <div class="qr-code-wrapper">
+                            <div id="qrCode"></div>
+                            <div class="qr-overlay"></div>
+                            <div class="qr-refreshing" id="qrRefreshing">
+                                <i class="fas fa-sync-alt animate-spin"></i>
+                            </div>
+                        </div>
+                        <div class="qr-info">
+                            <div class="qr-auto-refresh">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>Auto-refresh setiap 5 detik</span>
+                            </div>
+                            <div class="qr-next-refresh">
+                                Refresh dalam: <strong id="nextRefresh">5</strong> detik
+                            </div>
+                            <div class="qr-timer">
+                                <i class="fas fa-clock"></i>
+                                <span>Session berakhir: <strong id="validUntil">--:--</strong></span>
+                            </div>
+                            <div class="qr-countdown" id="countdown">--:--:--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-info-circle"></i> Informasi</h3>
+                </div>
+                <div class="card-body">
+                    <ul class="info-list-simple">
+                        <li>
+                            <i class="fas fa-shield-alt text-success"></i>
+                            <span>QR Code berganti otomatis setiap <strong>5 detik</strong></span>
+                        </li>
+                        <li>
+                            <i class="fas fa-check text-success"></i>
+                            <span>Setiap QR hanya bisa digunakan sekali per guru</span>
+                        </li>
+                        <li>
+                            <i class="fas fa-ban text-warning"></i>
+                            <span>Screenshot tidak bisa digunakan karena QR sudah berganti</span>
+                        </li>
+                        <li>
+                            <i class="fas fa-desktop text-info"></i>
+                            <span>Gunakan mode Fullscreen untuk tampilan optimal</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <div class="fullscreen-mode" id="fullscreenMode">
+        <button class="btn-exit" id="btnExitFullscreen">
+            <i class="fas fa-times"></i> ESC
+        </button>
+        <div class="fullscreen-time" id="fullscreenTime">00:00:00</div>
+        <div class="fullscreen-qr">
+            <div id="qrCodeFullscreen"></div>
+            <div class="qr-refreshing" id="qrRefreshingFullscreen">
+                <i class="fas fa-sync-alt animate-spin"></i>
+            </div>
+        </div>
+        <div class="fullscreen-countdown" id="fullscreenCountdown">--:--:--</div>
+        <div class="fullscreen-valid" id="fullscreenValid">Session berakhir: --:--</div>
+        <div class="fullscreen-auto-refresh">
+            <i class="fas fa-sync-alt animate-spin"></i>
+            <span>Refresh dalam: <strong id="fullscreenNextRefresh">5</strong> detik</span>
+        </div>
+    </div>
+    
+    <script src="../js/storage.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        let qrInstance = null;
+        let qrInstanceFullscreen = null;
+        let countdownInterval = null;
+        let autoRefreshInterval = null;
+        let timeUpdateInterval = null;
+        let refreshCountdown = 5;
+        let sessionExpiredAt = null;
+        let isGenerating = false;
+        let currentQRCode = null;
+        
+        const AUTO_REFRESH_SECONDS = 5;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const session = getSession();
+            if (!session || session.role !== 'admin') {
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            const admin = getUserById(session.id);
+            document.getElementById('adminAvatar').textContent = getInitials(admin.nama);
+            
+            const settings = getSettings();
+            document.getElementById('schoolName').textContent = settings.nama_sekolah || 'SMP Negeri 1 Contoh';
+            document.getElementById('pendingBadge').textContent = getPendingLeaves().length;
+            
+            setupSidebar();
+            setupAntiScreenshot();
+            
+            document.getElementById('btnGenerate').addEventListener('click', startQRSession);
+            document.getElementById('btnStop').addEventListener('click', stopQRSession);
+            document.getElementById('btnFullscreen').addEventListener('click', enterFullscreen);
+            document.getElementById('btnExitFullscreen').addEventListener('click', exitFullscreen);
+            
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') exitFullscreen();
+            });
+            
+            document.getElementById('btnLogout').addEventListener('click', function(e) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Logout?',
+                    text: 'Session QR akan dihentikan.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Ya, Keluar',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        stopQRSession();
+                        clearSession();
+                        window.location.href = '../login.html';
+                    }
+                });
+            });
+        });
+        
+        function setupSidebar() {
+            const hamburger = document.getElementById('hamburger');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const sidebarClose = document.getElementById('sidebarClose');
+            
+            hamburger.addEventListener('click', () => {
+                sidebar.classList.add('show');
+                sidebarOverlay.classList.add('show');
+            });
+            
+            const closeSidebar = () => {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            };
+            
+            sidebarClose.addEventListener('click', closeSidebar);
+            sidebarOverlay.addEventListener('click', closeSidebar);
+        }
+        
+        function setupAntiScreenshot() {
+            document.addEventListener('contextmenu', function(e) {
+                if (e.target.closest('.qr-protected') || e.target.closest('.fullscreen-mode')) {
+                    e.preventDefault();
+                }
+            });
+            
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'PrintScreen') {
+                    e.preventDefault();
+                    try { navigator.clipboard.writeText(''); } catch(err) {}
+                }
+                if (e.ctrlKey && (e.key === 's' || e.key === 'S' || e.key === 'p' || e.key === 'P')) {
+                    e.preventDefault();
+                }
+            });
+        }
+        
+        function startQRSession() {
+            const duration = parseInt(document.getElementById('duration').value);
+            
+            const now = new Date();
+            sessionExpiredAt = new Date(now.getTime() + duration * 60 * 1000);
+            
+            document.getElementById('qrPlaceholder').style.display = 'none';
+            document.getElementById('qrDisplay').style.display = 'flex';
+            document.getElementById('btnGenerate').style.display = 'none';
+            document.getElementById('btnStop').style.display = 'inline-flex';
+            document.getElementById('btnFullscreen').disabled = false;
+            
+            const expireTime = sessionExpiredAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('validUntil').textContent = expireTime;
+            document.getElementById('fullscreenValid').textContent = 'Session berakhir: ' + expireTime;
+            
+            generateNewQR();
+            startSessionCountdown();
+            startAutoRefresh();
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Session Dimulai!',
+                html: `<p>QR berganti otomatis setiap <strong>5 detik</strong></p>`,
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+        
+        function stopQRSession() {
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            if (timeUpdateInterval) clearInterval(timeUpdateInterval);
+            
+            countdownInterval = null;
+            autoRefreshInterval = null;
+            timeUpdateInterval = null;
+            
+            document.getElementById('qrPlaceholder').style.display = 'flex';
+            document.getElementById('qrDisplay').style.display = 'none';
+            document.getElementById('btnGenerate').style.display = 'inline-flex';
+            document.getElementById('btnStop').style.display = 'none';
+            document.getElementById('btnFullscreen').disabled = true;
+            
+            document.getElementById('qrCode').innerHTML = '';
+            document.getElementById('qrCodeFullscreen').innerHTML = '';
+            
+            exitFullscreen();
+            sessionExpiredAt = null;
+            currentQRCode = null;
+        }
+        
+        function generateNewQR() {
+            if (isGenerating) return;
+            isGenerating = true;
+            
+            document.getElementById('qrRefreshing').classList.add('show');
+            document.getElementById('qrRefreshingFullscreen').classList.add('show');
+            
+            setTimeout(() => {
+                const qrData = generateQR(0);
+                currentQRCode = qrData.code;
+                
+                document.getElementById('qrCode').innerHTML = '';
+                qrInstance = new QRCode(document.getElementById('qrCode'), {
+                    text: qrData.code,
+                    width: 200,
+                    height: 200,
+                    colorDark: '#1e293b',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                if (document.getElementById('fullscreenMode').classList.contains('show')) {
+                    document.getElementById('qrCodeFullscreen').innerHTML = '';
+                    qrInstanceFullscreen = new QRCode(document.getElementById('qrCodeFullscreen'), {
+                        text: qrData.code,
+                        width: 280,
+                        height: 280,
+                        colorDark: '#1e293b',
+                        colorLight: '#ffffff',
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                }
+                
+                setTimeout(() => {
+                    document.getElementById('qrRefreshing').classList.remove('show');
+                    document.getElementById('qrRefreshingFullscreen').classList.remove('show');
+                    isGenerating = false;
+                }, 150);
+                
+            }, 100);
+        }
+        
+        function startAutoRefresh() {
+            refreshCountdown = AUTO_REFRESH_SECONDS;
+            updateRefreshCountdown();
+            
+            autoRefreshInterval = setInterval(() => {
+                refreshCountdown--;
+                updateRefreshCountdown();
+                
+                if (refreshCountdown <= 0) {
+                    refreshCountdown = AUTO_REFRESH_SECONDS;
+                    generateNewQR();
+                }
+            }, 1000);
+        }
+        
+        function updateRefreshCountdown() {
+            document.getElementById('nextRefresh').textContent = refreshCountdown;
+            document.getElementById('fullscreenNextRefresh').textContent = refreshCountdown;
+        }
+        
+        function startSessionCountdown() {
+            updateSessionCountdown();
+            countdownInterval = setInterval(updateSessionCountdown, 1000);
+        }
+        
+        function updateSessionCountdown() {
+            if (!sessionExpiredAt) return;
+            
+            const now = new Date();
+            const diff = sessionExpiredAt - now;
+            
+            if (diff <= 0) {
+                stopQRSession();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Session Berakhir',
+                    text: 'Waktu presensi telah habis.'
+                });
+                return;
+            }
+            
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            document.getElementById('countdown').textContent = timeStr;
+            document.getElementById('fullscreenCountdown').textContent = timeStr;
+        }
+        
+        function enterFullscreen() {
+            if (!sessionExpiredAt) return;
+            
+            const fullscreenMode = document.getElementById('fullscreenMode');
+            fullscreenMode.classList.add('show');
+            
+            document.getElementById('qrCodeFullscreen').innerHTML = '';
+            if (currentQRCode) {
+                qrInstanceFullscreen = new QRCode(document.getElementById('qrCodeFullscreen'), {
+                    text: currentQRCode,
+                    width: 280,
+                    height: 280,
+                    colorDark: '#1e293b',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
+            
+            updateFullscreenTime();
+            timeUpdateInterval = setInterval(updateFullscreenTime, 1000);
+            
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
+        }
+        
+        function updateFullscreenTime() {
+            const now = new Date();
+            document.getElementById('fullscreenTime').textContent = 
+                now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        
+        function exitFullscreen() {
+            document.getElementById('fullscreenMode').classList.remove('show');
+            if (timeUpdateInterval) {
+                clearInterval(timeUpdateInterval);
+                timeUpdateInterval = null;
+            }
+            if (document.exitFullscreen && document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+    </script>
+</body>
+</html>

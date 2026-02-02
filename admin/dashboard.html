@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Dashboard - Admin Absensi</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="admin-page">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <i class="fas fa-school"></i>
+            </div>
+            <div class="sidebar-brand">
+                <h2>Absensi Guru</h2>
+                <p id="schoolName">SMP Negeri 1 Contoh</p>
+            </div>
+            <button class="sidebar-close" id="sidebarClose">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link active">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="qrcode.html" class="nav-link">
+                <i class="fas fa-qrcode"></i>
+                <span>Generate QR</span>
+            </a>
+            <a href="data-guru.html" class="nav-link">
+                <i class="fas fa-users"></i>
+                <span>Data Guru</span>
+            </a>
+            <a href="validasi.html" class="nav-link">
+                <i class="fas fa-clipboard-check"></i>
+                <span>Validasi Izin</span>
+                <span class="nav-badge" id="pendingBadge">0</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <a href="#" class="btn btn-danger btn-block" id="btnLogout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+    
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <div class="admin-main">
+        <header class="admin-header">
+            <button class="hamburger" id="hamburger">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1>Dashboard</h1>
+            <div class="header-actions">
+                <div class="notification-bell">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge" id="notifBadge">0</span>
+                </div>
+                <div class="admin-avatar" id="adminAvatar"></div>
+            </div>
+        </header>
+        
+        <main class="admin-content">
+            <div class="stats-grid-4">
+                <div class="stat-card stat-blue">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="totalGuru">0</h3>
+                        <p>Total Guru</p>
+                    </div>
+                </div>
+                <div class="stat-card stat-green">
+                    <div class="stat-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="hadirHariIni">0</h3>
+                        <p>Hadir Hari Ini</p>
+                    </div>
+                    <span class="stat-percentage" id="persenHadir">0%</span>
+                </div>
+                <div class="stat-card stat-yellow">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="pendingValidasi">0</h3>
+                        <p>Pending Validasi</p>
+                    </div>
+                </div>
+                <div class="stat-card stat-red">
+                    <div class="stat-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="izinBaru">0</h3>
+                        <p>Izin Baru</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-bar"></i> Kehadiran Minggu Ini</h3>
+                    </div>
+                    <div class="chart-container" id="weeklyChart"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-clock"></i> Presensi Terbaru</h3>
+                    </div>
+                    <div class="attendance-list" id="recentAttendance"></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-file-alt"></i> Pengajuan Izin Terbaru</h3>
+                    <a href="validasi.html" class="btn btn-sm btn-ghost">Lihat Semua</a>
+                </div>
+                <div class="leave-list" id="pendingLeaves"></div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="../js/storage.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const session = getSession();
+            if (!session || session.role !== 'admin') {
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            const admin = getUserById(session.id);
+            const initial = getInitials(admin.nama);
+            document.getElementById('adminAvatar').textContent = initial;
+            
+            const settings = getSettings();
+            document.getElementById('schoolName').textContent = settings.nama_sekolah || 'SMP Negeri 1 Contoh';
+            
+            loadDashboard();
+            setupSidebar();
+            
+            document.getElementById('btnLogout').addEventListener('click', function(e) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Logout?',
+                    text: 'Apakah Anda yakin ingin keluar?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Ya, Keluar',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        clearSession();
+                        window.location.href = '../login.html';
+                    }
+                });
+            });
+        });
+        
+        function setupSidebar() {
+            const hamburger = document.getElementById('hamburger');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const sidebarClose = document.getElementById('sidebarClose');
+            
+            hamburger.addEventListener('click', () => {
+                sidebar.classList.add('show');
+                sidebarOverlay.classList.add('show');
+            });
+            
+            const closeSidebar = () => {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            };
+            
+            sidebarClose.addEventListener('click', closeSidebar);
+            sidebarOverlay.addEventListener('click', closeSidebar);
+        }
+        
+        function loadDashboard() {
+            const today = new Date().toISOString().split('T')[0];
+            
+            const allUsers = getUsers().filter(u => u.role === 'guru' && u.status !== 'nonaktif');
+            const totalGuru = allUsers.length;
+            
+            const todayAttendance = getAttendances().filter(a => a.tanggal === today);
+            const hadirHariIni = todayAttendance.length;
+            const persenHadir = totalGuru > 0 ? Math.round((hadirHariIni / totalGuru) * 100) : 0;
+            
+            const pendingLeaves = getPendingLeaves();
+            const pendingCount = pendingLeaves.length;
+            
+            const todayLeaves = getLeaves().filter(l => {
+                const created = new Date(l.createdAt).toISOString().split('T')[0];
+                return created === today && l.status === 'pending';
+            });
+            
+            document.getElementById('totalGuru').textContent = totalGuru;
+            document.getElementById('hadirHariIni').textContent = hadirHariIni;
+            document.getElementById('persenHadir').textContent = persenHadir + '%';
+            document.getElementById('pendingValidasi').textContent = pendingCount;
+            document.getElementById('izinBaru').textContent = todayLeaves.length;
+            document.getElementById('pendingBadge').textContent = pendingCount;
+            document.getElementById('notifBadge').textContent = pendingCount;
+            
+            // Generate weekly chart
+            generateWeeklyChart();
+            
+            // Recent attendance
+            const recentAttendance = document.getElementById('recentAttendance');
+            const recent = todayAttendance.slice(-5).reverse();
+            
+            if (recent.length === 0) {
+                recentAttendance.innerHTML = '<div class="empty-state-sm"><p>Belum ada presensi hari ini</p></div>';
+            } else {
+                recentAttendance.innerHTML = recent.map(a => {
+                    const user = getUserById(a.userId);
+                    if (!user) return '';
+                    const initial = getInitials(user.nama);
+                    const statusClass = a.status === 'hadir' ? 'success' : 'warning';
+                    
+                    return `
+                        <div class="attendance-item">
+                            <div class="attendance-avatar">${initial}</div>
+                            <div class="attendance-info">
+                                <h4>${user.nama}</h4>
+                                <p>${a.jamMasuk}</p>
+                            </div>
+                            <span class="badge badge-${statusClass}">${a.status === 'hadir' ? 'Tepat Waktu' : 'Terlambat'}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            // Pending leaves
+            const pendingLeavesEl = document.getElementById('pendingLeaves');
+            const recentLeaves = pendingLeaves.slice(0, 5);
+            
+            if (recentLeaves.length === 0) {
+                pendingLeavesEl.innerHTML = '<div class="empty-state-sm"><p>Tidak ada pengajuan izin pending</p></div>';
+            } else {
+                pendingLeavesEl.innerHTML = recentLeaves.map(l => {
+                    const user = getUserById(l.userId);
+                    if (!user) return '';
+                    const initial = getInitials(user.nama);
+                    
+                    return `
+                        <div class="leave-item">
+                            <div class="leave-avatar">${initial}</div>
+                            <div class="leave-info">
+                                <h4>${user.nama}</h4>
+                                <p>${l.jenis} - ${formatDate(new Date(l.tanggal))}</p>
+                                <span class="text-muted">${timeAgo(new Date(l.createdAt))}</span>
+                            </div>
+                            <div class="leave-actions">
+                                <button class="btn btn-sm btn-success" onclick="approveLeave(${l.id})">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="rejectLeave(${l.id})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+        
+        function generateWeeklyChart() {
+            const chart = document.getElementById('weeklyChart');
+            const days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+            const today = new Date();
+            const startOfWeek = new Date(today);
+            startOfWeek.setDate(today.getDate() - today.getDay() + 1);
+            
+            const totalGuru = getUsers().filter(u => u.role === 'guru' && u.status !== 'nonaktif').length;
+            
+            let maxAttendance = 1;
+            const attendanceData = [];
+            
+            for (let i = 0; i < 6; i++) {
+                const date = new Date(startOfWeek);
+                date.setDate(startOfWeek.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+                const attendance = getAttendances().filter(a => a.tanggal === dateStr).length;
+                attendanceData.push(attendance);
+                if (attendance > maxAttendance) maxAttendance = attendance;
+            }
+            
+            let html = '<div class="bar-chart">';
+            
+            for (let i = 0; i < 6; i++) {
+                const percentage = totalGuru > 0 ? Math.round((attendanceData[i] / totalGuru) * 100) : 0;
+                const height = Math.max(percentage, 5);
+                
+                html += `
+                    <div class="bar-item">
+                        <div class="bar-fill" style="height: ${height}%">
+                            <span class="bar-value">${attendanceData[i]}</span>
+                        </div>
+                        <span class="bar-label">${days[i]}</span>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            chart.innerHTML = html;
+        }
+        
+        function approveLeave(id) {
+            Swal.fire({
+                title: 'Setujui Izin?',
+                text: 'Apakah Anda yakin ingin menyetujui izin ini?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Ya, Setujui',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    updateLeave(id, { status: 'approved' });
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: 'Izin telah disetujui.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => location.reload());
+                }
+            });
+        }
+        
+        function rejectLeave(id) {
+            Swal.fire({
+                title: 'Tolak Izin?',
+                input: 'textarea',
+                inputLabel: 'Alasan Penolakan',
+                inputPlaceholder: 'Masukkan alasan penolakan...',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return 'Alasan penolakan wajib diisi!';
+                    }
+                },
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Tolak',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    updateLeave(id, { 
+                        status: 'rejected',
+                        alasanTolak: result.value
+                    });
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: 'Izin telah ditolak.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => location.reload());
+                }
+            });
+        }
+    </script>
+</body>
+</html>

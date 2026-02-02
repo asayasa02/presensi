@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Ajukan Izin - Absensi Guru</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="guru-page">
+    <header class="page-header">
+        <a href="home.html" class="btn-back">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <h1>Ajukan Izin</h1>
+        <div style="width: 44px;"></div>
+    </header>
+    
+    <main class="page-content">
+        <form id="izinForm" class="card">
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="form-label" for="tanggal">Tanggal Izin <span class="required">*</span></label>
+                    <input type="date" id="tanggal" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="jenis">Jenis Izin <span class="required">*</span></label>
+                    <select id="jenis" class="form-select" required>
+                        <option value="">Pilih Jenis Izin</option>
+                        <option value="Sakit">Sakit</option>
+                        <option value="Keperluan Keluarga">Keperluan Keluarga</option>
+                        <option value="Dinas Luar">Dinas Luar</option>
+                        <option value="Cuti">Cuti</option>
+                        <option value="Lainnya">Lainnya</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="keterangan">
+                        Keterangan <span class="required">*</span>
+                        <span class="char-counter"><span id="charCount">0</span>/200</span>
+                    </label>
+                    <textarea 
+                        id="keterangan" 
+                        class="form-textarea" 
+                        rows="4" 
+                        placeholder="Jelaskan alasan izin Anda (minimal 10 karakter)"
+                        maxlength="200"
+                        required
+                    ></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Upload Bukti (Opsional)</label>
+                    <div class="file-upload" id="fileUpload">
+                        <input type="file" id="bukti" accept=".jpg,.jpeg,.png,.pdf" hidden>
+                        <div class="file-upload-content" id="uploadContent">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Klik atau drag file ke sini</p>
+                            <span>JPG, PNG, PDF (Max 5MB)</span>
+                        </div>
+                        <div class="file-preview" id="filePreview" style="display: none;">
+                            <i class="fas fa-file"></i>
+                            <span id="fileName"></span>
+                            <button type="button" class="btn-remove-file" id="removeFile">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="telepon">Nomor Telepon (Opsional)</label>
+                    <div class="form-input-icon">
+                        <i class="fas fa-phone"></i>
+                        <input type="tel" id="telepon" class="form-input" placeholder="08xxxxxxxxxx">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block" id="btnSubmit">
+                    <span class="btn-text">
+                        <i class="fas fa-paper-plane"></i> Kirim Pengajuan
+                    </span>
+                    <span class="btn-loader" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> Mengirim...
+                    </span>
+                </button>
+            </div>
+        </form>
+    </main>
+    
+    <script src="../js/storage.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        let selectedFile = null;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const session = getSession();
+            if (!session || session.role !== 'guru') {
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('tanggal').value = today;
+            document.getElementById('tanggal').min = today;
+            
+            // Character counter
+            const keterangan = document.getElementById('keterangan');
+            const charCount = document.getElementById('charCount');
+            
+            keterangan.addEventListener('input', function() {
+                charCount.textContent = this.value.length;
+            });
+            
+            // File upload
+            const fileUpload = document.getElementById('fileUpload');
+            const fileInput = document.getElementById('bukti');
+            const uploadContent = document.getElementById('uploadContent');
+            const filePreview = document.getElementById('filePreview');
+            const fileName = document.getElementById('fileName');
+            const removeFile = document.getElementById('removeFile');
+            
+            fileUpload.addEventListener('click', function(e) {
+                if (!selectedFile && e.target !== removeFile && !removeFile.contains(e.target)) {
+                    fileInput.click();
+                }
+            });
+            
+            fileUpload.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+            
+            fileUpload.addEventListener('dragleave', function() {
+                this.classList.remove('dragover');
+            });
+            
+            fileUpload.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                handleFile(e.dataTransfer.files[0]);
+            });
+            
+            fileInput.addEventListener('change', function() {
+                handleFile(this.files[0]);
+            });
+            
+            removeFile.addEventListener('click', function(e) {
+                e.stopPropagation();
+                selectedFile = null;
+                fileInput.value = '';
+                uploadContent.style.display = 'flex';
+                filePreview.style.display = 'none';
+            });
+            
+            function handleFile(file) {
+                if (!file) return;
+                
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+                if (!allowedTypes.includes(file.type)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format Tidak Valid',
+                        text: 'Hanya file JPG, PNG, atau PDF yang diperbolehkan.'
+                    });
+                    return;
+                }
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'File Terlalu Besar',
+                        text: 'Ukuran file maksimal 5MB.'
+                    });
+                    return;
+                }
+                
+                selectedFile = file;
+                fileName.textContent = file.name;
+                uploadContent.style.display = 'none';
+                filePreview.style.display = 'flex';
+            }
+            
+            // Form submit
+            const form = document.getElementById('izinForm');
+            const btnSubmit = document.getElementById('btnSubmit');
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const tanggal = document.getElementById('tanggal').value;
+                const jenis = document.getElementById('jenis').value;
+                const keteranganVal = document.getElementById('keterangan').value.trim();
+                const telepon = document.getElementById('telepon').value.trim();
+                
+                if (keteranganVal.length < 10) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validasi Gagal',
+                        text: 'Keterangan minimal 10 karakter.'
+                    });
+                    return;
+                }
+                
+                if (telepon && !validatePhone(telepon)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validasi Gagal',
+                        text: 'Format nomor telepon tidak valid.'
+                    });
+                    return;
+                }
+                
+                // Show loading
+                btnSubmit.disabled = true;
+                btnSubmit.querySelector('.btn-text').style.display = 'none';
+                btnSubmit.querySelector('.btn-loader').style.display = 'inline-flex';
+                
+                // Convert file to base64 if exists
+                let fileData = null;
+                if (selectedFile) {
+                    fileData = await fileToBase64(selectedFile);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 800));
+                
+                // Save leave request
+                const leave = {
+                    id: Date.now(),
+                    userId: session.id,
+                    tanggal: tanggal,
+                    jenis: jenis,
+                    keterangan: keteranganVal,
+                    bukti: fileData,
+                    buktiName: selectedFile ? selectedFile.name : null,
+                    telepon: telepon || null,
+                    status: 'pending',
+                    alasanTolak: null,
+                    createdAt: new Date().toISOString()
+                };
+                
+                addLeave(leave);
+                
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: 'Pengajuan izin berhasil dikirim.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                
+                window.location.href = 'home.html';
+            });
+            
+            function fileToBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = error => reject(error);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

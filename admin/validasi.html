@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Validasi Izin - Admin Absensi</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="admin-page">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <i class="fas fa-school"></i>
+            </div>
+            <div class="sidebar-brand">
+                <h2>Absensi Guru</h2>
+                <p id="schoolName">SMP Negeri 1 Contoh</p>
+            </div>
+            <button class="sidebar-close" id="sidebarClose">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="qrcode.html" class="nav-link">
+                <i class="fas fa-qrcode"></i>
+                <span>Generate QR</span>
+            </a>
+            <a href="data-guru.html" class="nav-link">
+                <i class="fas fa-users"></i>
+                <span>Data Guru</span>
+            </a>
+            <a href="validasi.html" class="nav-link active">
+                <i class="fas fa-clipboard-check"></i>
+                <span>Validasi Izin</span>
+                <span class="nav-badge" id="pendingBadge">0</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <a href="#" class="btn btn-danger btn-block" id="btnLogout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+    
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <div class="admin-main">
+        <header class="admin-header">
+            <button class="hamburger" id="hamburger">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1>Validasi Izin</h1>
+            <div class="header-actions">
+                <div class="admin-avatar" id="adminAvatar"></div>
+            </div>
+        </header>
+        
+        <main class="admin-content">
+            <div class="card mb-lg">
+                <div class="card-body">
+                    <div class="filter-row-admin">
+                        <div class="form-group mb-0">
+                            <label class="form-label">Status</label>
+                            <select id="filterStatus" class="form-select">
+                                <option value="">Semua</option>
+                                <option value="pending" selected>Pending</option>
+                                <option value="approved">Disetujui</option>
+                                <option value="rejected">Ditolak</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="form-label">Tanggal</label>
+                            <input type="date" id="filterDate" class="form-input">
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="form-label">Cari Guru</label>
+                            <div class="form-input-icon">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="filterSearch" class="form-input" placeholder="Nama guru...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="leave-cards" id="leaveList"></div>
+            
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <i class="fas fa-clipboard-check"></i>
+                <h3>Tidak Ada Data</h3>
+                <p>Tidak ada pengajuan izin yang sesuai filter.</p>
+            </div>
+        </main>
+    </div>
+    
+    <div class="modal-overlay" id="modalBukti">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>Bukti Izin</h3>
+                <button class="modal-close" id="closeModalBukti">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <img id="buktiImage" src="" alt="Bukti" style="max-width: 100%; border-radius: 0.5rem;">
+                <a id="buktiLink" href="" target="_blank" class="btn btn-primary btn-block mt-md" style="display: none;">
+                    <i class="fas fa-external-link-alt"></i> Buka File PDF
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="../js/storage.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const session = getSession();
+            if (!session || session.role !== 'admin') {
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            const admin = getUserById(session.id);
+            document.getElementById('adminAvatar').textContent = getInitials(admin.nama);
+            
+            const settings = getSettings();
+            document.getElementById('schoolName').textContent = settings.nama_sekolah || 'SMP Negeri 1 Contoh';
+            
+            updatePendingBadge();
+            loadLeaves();
+            
+            document.getElementById('filterStatus').addEventListener('change', loadLeaves);
+            document.getElementById('filterDate').addEventListener('change', loadLeaves);
+            document.getElementById('filterSearch').addEventListener('input', debounce(loadLeaves, 300));
+            
+            setupSidebar();
+            setupModal();
+            
+            document.getElementById('btnLogout').addEventListener('click', function(e) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Logout?',
+                    text: 'Apakah Anda yakin ingin keluar?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Ya, Keluar',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        clearSession();
+                        window.location.href = '../login.html';
+                    }
+                });
+            });
+        });
+        
+        function setupSidebar() {
+            const hamburger = document.getElementById('hamburger');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const sidebarClose = document.getElementById('sidebarClose');
+            
+            hamburger.addEventListener('click', () => {
+                sidebar.classList.add('show');
+                sidebarOverlay.classList.add('show');
+            });
+            
+            const closeSidebar = () => {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            };
+            
+            sidebarClose.addEventListener('click', closeSidebar);
+            sidebarOverlay.addEventListener('click', closeSidebar);
+        }
+        
+        function setupModal() {
+            const modal = document.getElementById('modalBukti');
+            document.getElementById('closeModalBukti').addEventListener('click', () => modal.classList.remove('show'));
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.remove('show');
+            });
+        }
+        
+        function updatePendingBadge() {
+            document.getElementById('pendingBadge').textContent = getPendingLeaves().length;
+        }
+        
+        function loadLeaves() {
+            const status = document.getElementById('filterStatus').value;
+            const date = document.getElementById('filterDate').value;
+            const search = document.getElementById('filterSearch').value.toLowerCase();
+            
+            let leaves = getLeaves();
+            
+            if (status) {
+                leaves = leaves.filter(l => l.status === status);
+            }
+            
+            if (date) {
+                leaves = leaves.filter(l => l.tanggal === date);
+            }
+            
+            if (search) {
+                leaves = leaves.filter(l => {
+                    const user = getUserById(l.userId);
+                    return user && user.nama.toLowerCase().includes(search);
+                });
+            }
+            
+            leaves.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
+            const leaveList = document.getElementById('leaveList');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (leaves.length === 0) {
+                leaveList.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            
+            leaveList.innerHTML = leaves.map(l => {
+                const user = getUserById(l.userId);
+                if (!user) return '';
+                
+                const initial = getInitials(user.nama);
+                
+                let statusClass = 'pending';
+                let statusText = 'Menunggu';
+                if (l.status === 'approved') {
+                    statusClass = 'success';
+                    statusText = 'Disetujui';
+                } else if (l.status === 'rejected') {
+                    statusClass = 'danger';
+                    statusText = 'Ditolak';
+                }
+                
+                const buktiBtn = l.bukti 
+                    ? `<button class="btn btn-sm btn-ghost" onclick="viewBukti(${l.id})"><i class="fas fa-paperclip"></i> Bukti</button>`
+                    : '';
+                
+                const actionBtns = l.status === 'pending' 
+                    ? `
+                        <button class="btn btn-sm btn-success" onclick="approveLeave(${l.id})">
+                            <i class="fas fa-check"></i> Setujui
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="rejectLeave(${l.id})">
+                            <i class="fas fa-times"></i> Tolak
+                        </button>
+                    `
+                    : '';
+                
+                const alasanTolak = l.status === 'rejected' && l.alasanTolak
+                    ? `<p class="leave-reject-reason"><strong>Alasan:</strong> ${l.alasanTolak}</p>`
+                    : '';
+                
+                return `
+                    <div class="leave-card">
+                        <div class="leave-card-header">
+                            <span class="badge badge-${statusClass}">${statusText}</span>
+                            <span class="leave-time">${timeAgo(new Date(l.createdAt))}</span>
+                        </div>
+                        <div class="leave-card-body">
+                            <div class="leave-user">
+                                <div class="leave-avatar">${initial}</div>
+                                <div class="leave-user-info">
+                                    <h4>${user.nama}</h4>
+                                    <p>${user.nip}</p>
+                                </div>
+                            </div>
+                            <div class="leave-details">
+                                <div class="leave-detail">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>${formatDate(new Date(l.tanggal))}</span>
+                                </div>
+                                <div class="leave-detail">
+                                    <i class="fas fa-tag"></i>
+                                    <span>${l.jenis}</span>
+                                </div>
+                            </div>
+                            <p class="leave-keterangan">${l.keterangan}</p>
+                            ${alasanTolak}
+                            <div class="leave-card-actions">
+                                ${buktiBtn}
+                                ${actionBtns}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function viewBukti(id) {
+            const leave = getLeaves().find(l => l.id === id);
+            if (!leave || !leave.bukti) return;
+            
+            const modal = document.getElementById('modalBukti');
+            const img = document.getElementById('buktiImage');
+            const link = document.getElementById('buktiLink');
+            
+            if (leave.bukti.startsWith('data:image')) {
+                img.src = leave.bukti;
+                img.style.display = 'block';
+                link.style.display = 'none';
+            } else {
+                img.style.display = 'none';
+                link.href = leave.bukti;
+                link.style.display = 'flex';
+            }
+            
+            modal.classList.add('show');
+        }
+        
+        function approveLeave(id) {
+            Swal.fire({
+                title: 'Setujui Izin?',
+                text: 'Izin akan disetujui.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Ya, Setujui',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    updateLeave(id, { status: 'approved' });
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        loadLeaves();
+                        updatePendingBadge();
+                    });
+                }
+            });
+        }
+        
+        function rejectLeave(id) {
+            Swal.fire({
+                title: 'Tolak Izin?',
+                input: 'textarea',
+                inputLabel: 'Alasan Penolakan',
+                inputPlaceholder: 'Masukkan alasan...',
+                inputValidator: (value) => {
+                    if (!value) return 'Alasan wajib diisi!';
+                },
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Tolak',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    updateLeave(id, { 
+                        status: 'rejected',
+                        alasanTolak: result.value
+                    });
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        loadLeaves();
+                        updatePendingBadge();
+                    });
+                }
+            });
+        }
+    </script>
+</body>
+</html>

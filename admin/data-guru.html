@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Data Guru - Admin Absensi</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="admin-page">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <i class="fas fa-school"></i>
+            </div>
+            <div class="sidebar-brand">
+                <h2>Absensi Guru</h2>
+                <p id="schoolName">SMP Negeri 1 Contoh</p>
+            </div>
+            <button class="sidebar-close" id="sidebarClose">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-link">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="qrcode.html" class="nav-link">
+                <i class="fas fa-qrcode"></i>
+                <span>Generate QR</span>
+            </a>
+            <a href="data-guru.html" class="nav-link active">
+                <i class="fas fa-users"></i>
+                <span>Data Guru</span>
+            </a>
+            <a href="validasi.html" class="nav-link">
+                <i class="fas fa-clipboard-check"></i>
+                <span>Validasi Izin</span>
+                <span class="nav-badge" id="pendingBadge">0</span>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <a href="#" class="btn btn-danger btn-block" id="btnLogout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </aside>
+    
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <div class="admin-main">
+        <header class="admin-header">
+            <button class="hamburger" id="hamburger">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1>Data Guru</h1>
+            <div class="header-actions">
+                <button class="btn btn-primary btn-sm" id="btnAddGuru">
+                    <i class="fas fa-plus"></i> <span class="hide-mobile">Tambah</span>
+                </button>
+            </div>
+        </header>
+        
+        <main class="admin-content">
+            <div class="card mb-lg">
+                <div class="card-body">
+                    <div class="filter-row-admin">
+                        <div class="form-group mb-0" style="flex: 2;">
+                            <label class="form-label">Cari</label>
+                            <div class="form-input-icon">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="filterSearch" class="form-input" placeholder="Nama atau NIP...">
+                            </div>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="form-label">Status</label>
+                            <select id="filterStatus" class="form-select">
+                                <option value="">Semua</option>
+                                <option value="aktif">Aktif</option>
+                                <option value="nonaktif">Nonaktif</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card" id="tableCard">
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Nama</th>
+                                <th>NIP</th>
+                                <th>Email</th>
+                                <th>Mapel</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="guruTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="pagination"></div>
+            </div>
+            
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <i class="fas fa-users"></i>
+                <h3>Tidak Ada Data</h3>
+                <p>Belum ada data guru.</p>
+            </div>
+        </main>
+    </div>
+    
+    <div class="modal-overlay" id="modalGuru">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Tambah Guru</h3>
+                <button class="modal-close" id="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="guruForm">
+                <div class="modal-body">
+                    <input type="hidden" id="guruId">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Nama Lengkap <span class="required">*</span></label>
+                        <input type="text" id="guruNama" class="form-input" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">NIP <span class="required">*</span></label>
+                        <input type="text" id="guruNIP" class="form-input" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Email <span class="required">*</span></label>
+                        <input type="email" id="guruEmail" class="form-input" required>
+                    </div>
+                    
+                    <div class="form-group" id="passwordGroup">
+                        <label class="form-label">Password <span class="required" id="passRequired">*</span></label>
+                        <input type="password" id="guruPassword" class="form-input" minlength="6">
+                        <span class="form-help">Minimal 6 karakter</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Mata Pelajaran <span class="required">*</span></label>
+                        <select id="guruMapel" class="form-select" required>
+                            <option value="">Pilih Mapel</option>
+                            <option value="Matematika">Matematika</option>
+                            <option value="IPA">IPA</option>
+                            <option value="IPS">IPS</option>
+                            <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                            <option value="Bahasa Inggris">Bahasa Inggris</option>
+                            <option value="PKN">PKN</option>
+                            <option value="Agama">Agama</option>
+                            <option value="Seni Budaya">Seni Budaya</option>
+                            <option value="Penjaskes">Penjaskes</option>
+                            <option value="TIK">TIK</option>
+                            <option value="BK">BK</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Telepon</label>
+                        <input type="tel" id="guruTelepon" class="form-input" placeholder="08xxxxxxxxxx">
+                    </div>
+                    
+                    <div class="form-group" id="statusGroup" style="display: none;">
+                        <label class="form-label">Status</label>
+                        <select id="guruStatus" class="form-select">
+                            <option value="aktif">Aktif</option>
+                            <option value="nonaktif">Nonaktif</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-ghost" id="cancelGuru">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="../js/storage.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        let currentPage = 1;
+        const itemsPerPage = 10;
+        let editMode = false;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const session = getSession();
+            if (!session || session.role !== 'admin') {
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            const settings = getSettings();
+            document.getElementById('schoolName').textContent = settings.nama_sekolah || 'SMP Negeri 1 Contoh';
+            document.getElementById('pendingBadge').textContent = getPendingLeaves().length;
+            
+            loadGuru();
+            setupSidebar();
+            setupModal();
+            
+            document.getElementById('filterSearch').addEventListener('input', debounce(() => {
+                currentPage = 1;
+                loadGuru();
+            }, 300));
+            
+            document.getElementById('filterStatus').addEventListener('change', () => {
+                currentPage = 1;
+                loadGuru();
+            });
+            
+            document.getElementById('btnLogout').addEventListener('click', function(e) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Logout?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    confirmButtonText: 'Ya, Keluar',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        clearSession();
+                        window.location.href = '../login.html';
+                    }
+                });
+            });
+        });
+        
+        function setupSidebar() {
+            const hamburger = document.getElementById('hamburger');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const close = document.getElementById('sidebarClose');
+            
+            hamburger.addEventListener('click', () => {
+                sidebar.classList.add('show');
+                overlay.classList.add('show');
+            });
+            
+            const closeSidebar = () => {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            };
+            
+            close.addEventListener('click', closeSidebar);
+            overlay.addEventListener('click', closeSidebar);
+        }
+        
+        function setupModal() {
+            const modal = document.getElementById('modalGuru');
+            
+            document.getElementById('btnAddGuru').addEventListener('click', () => {
+                editMode = false;
+                document.getElementById('modalTitle').textContent = 'Tambah Guru';
+                document.getElementById('guruForm').reset();
+                document.getElementById('guruId').value = '';
+                document.getElementById('guruPassword').required = true;
+                document.getElementById('passRequired').style.display = 'inline';
+                document.getElementById('statusGroup').style.display = 'none';
+                modal.classList.add('show');
+            });
+            
+            document.getElementById('closeModal').addEventListener('click', () => modal.classList.remove('show'));
+            document.getElementById('cancelGuru').addEventListener('click', () => modal.classList.remove('show'));
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.remove('show');
+            });
+            
+            document.getElementById('guruForm').addEventListener('submit', handleFormSubmit);
+        }
+        
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const id = document.getElementById('guruId').value;
+            const nama = document.getElementById('guruNama').value.trim();
+            const nip = document.getElementById('guruNIP').value.trim();
+            const email = document.getElementById('guruEmail').value.trim();
+            const password = document.getElementById('guruPassword').value;
+            const mapel = document.getElementById('guruMapel').value;
+            const telepon = document.getElementById('guruTelepon').value.trim();
+            const status = document.getElementById('guruStatus').value;
+            
+            if (!validateEmail(email)) {
+                Swal.fire('Error', 'Format email tidak valid!', 'error');
+                return;
+            }
+            
+            const existingNIP = getUsers().find(u => u.nip === nip && u.id != id);
+            if (existingNIP) {
+                Swal.fire('Error', 'NIP sudah digunakan!', 'error');
+                return;
+            }
+            
+            const existingEmail = getUserByEmail(email);
+            if (existingEmail && existingEmail.id != id) {
+                Swal.fire('Error', 'Email sudah digunakan!', 'error');
+                return;
+            }
+            
+            if (editMode) {
+                const updateData = { nama, nip, email, mapel, telepon: telepon || null, status };
+                if (password) updateData.password = password;
+                updateUser(parseInt(id), updateData);
+                Swal.fire({ icon: 'success', title: 'Berhasil!', timer: 1500, showConfirmButton: false });
+            } else {
+                if (!password || password.length < 6) {
+                    Swal.fire('Error', 'Password minimal 6 karakter!', 'error');
+                    return;
+                }
+                
+                addUser({
+                    id: Date.now(),
+                    nama, nip, email, password, mapel,
+                    telepon: telepon || null,
+                    role: 'guru',
+                    status: 'aktif',
+                    createdAt: new Date().toISOString()
+                });
+                Swal.fire({ icon: 'success', title: 'Berhasil!', timer: 1500, showConfirmButton: false });
+            }
+            
+            document.getElementById('modalGuru').classList.remove('show');
+            loadGuru();
+        }
+        
+        function loadGuru() {
+            const search = document.getElementById('filterSearch').value.toLowerCase();
+            const status = document.getElementById('filterStatus').value;
+            
+            let users = getUsers().filter(u => u.role === 'guru');
+            
+            if (search) {
+                users = users.filter(u => 
+                    u.nama.toLowerCase().includes(search) || 
+                    u.nip.toLowerCase().includes(search)
+                );
+            }
+            
+            if (status) {
+                users = users.filter(u => u.status === status);
+            }
+            
+            users.sort((a, b) => a.nama.localeCompare(b.nama));
+            
+            const tbody = document.getElementById('guruTableBody');
+            const tableCard = document.getElementById('tableCard');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (users.length === 0) {
+                tableCard.style.display = 'none';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            tableCard.style.display = 'block';
+            emptyState.style.display = 'none';
+            
+            const totalPages = Math.ceil(users.length / itemsPerPage);
+            const start = (currentPage - 1) * itemsPerPage;
+            const paginated = users.slice(start, start + itemsPerPage);
+            
+            tbody.innerHTML = paginated.map((u, i) => {
+                const initial = getInitials(u.nama);
+                const statusClass = u.status === 'aktif' ? 'success' : 'danger';
+                
+                return `
+                    <tr>
+                        <td>${start + i + 1}</td>
+                        <td>
+                            <div class="table-user">
+                                <div class="table-avatar">${initial}</div>
+                                <span>${u.nama}</span>
+                            </div>
+                        </td>
+                        <td>${u.nip}</td>
+                        <td>${u.email}</td>
+                        <td>${u.mapel}</td>
+                        <td><span class="badge badge-${statusClass}">${u.status === 'aktif' ? 'Aktif' : 'Nonaktif'}</span></td>
+                        <td>
+                            <div class="table-actions">
+                                <button class="btn btn-sm btn-ghost" onclick="editGuru(${u.id})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-ghost text-danger" onclick="deleteGuru(${u.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            renderPagination(totalPages);
+        }
+        
+        function renderPagination(totalPages) {
+            const pagination = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+            
+            let html = `
+                <button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            `;
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                    html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+                } else if (i === currentPage - 2 || i === currentPage + 2) {
+                    html += `<span class="page-dots">...</span>`;
+                }
+            }
+            
+            html += `
+                <button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            `;
+            
+            pagination.innerHTML = html;
+        }
+        
+        function goToPage(page) {
+            currentPage = page;
+            loadGuru();
+        }
+        
+        function editGuru(id) {
+            const user = getUserById(id);
+            if (!user) return;
+            
+            editMode = true;
+            document.getElementById('modalTitle').textContent = 'Edit Guru';
+            document.getElementById('guruId').value = user.id;
+            document.getElementById('guruNama').value = user.nama;
+            document.getElementById('guruNIP').value = user.nip;
+            document.getElementById('guruEmail').value = user.email;
+            document.getElementById('guruPassword').value = '';
+            document.getElementById('guruPassword').required = false;
+            document.getElementById('passRequired').style.display = 'none';
+            document.getElementById('guruMapel').value = user.mapel;
+            document.getElementById('guruTelepon').value = user.telepon || '';
+            document.getElementById('guruStatus').value = user.status || 'aktif';
+            document.getElementById('statusGroup').style.display = 'block';
+            
+            document.getElementById('modalGuru').classList.add('show');
+        }
+        
+        function deleteGuru(id) {
+            Swal.fire({
+                title: 'Hapus Guru?',
+                text: 'Data tidak dapat dikembalikan!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                confirmButtonText: 'Ya, Hapus',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    deleteUser(id);
+                    Swal.fire({ icon: 'success', title: 'Terhapus!', timer: 1500, showConfirmButton: false })
+                        .then(() => loadGuru());
+                }
+            });
+        }
+    </script>
+</body>
+</html>

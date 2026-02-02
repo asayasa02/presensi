@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+    <div class="sidebar-overlay"></div>
+    <div class="sidebar">
+        <div class="sidebar-logo"><i class="fas fa-school fa-lg"></i> <span>SiAbsen</span></div>
+        <nav style="flex:1">
+            <a href="dashboard.html" class="side-link"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="qrcode.html" class="side-link"><i class="fas fa-qrcode"></i> Generate QR</a>
+            <a href="validasi.html" class="side-link"><i class="fas fa-check-circle"></i> Validasi Izin</a>
+            <a href="data-guru.html" class="side-link"><i class="fas fa-users"></i> Data Guru</a>
+            <a href="laporan.html" class="side-link active"><i class="fas fa-chart-pie"></i> Laporan</a>
+        </nav>
+        <button onclick="doLogout()" class="side-link text-danger w-full" style="justify-content: flex-start; background: transparent; border:none;"><i class="fas fa-sign-out-alt"></i> Keluar</button>
+    </div>
+
+    <div class="main-content">
+        <div class="admin-topbar">
+            <button onclick="toggleSidebar()" class="btn btn-outline" style="border:none; font-size:1.2rem;"><i class="fas fa-bars"></i></button>
+            <h2 class="font-bold text-xl">Laporan</h2>
+        </div>
+
+        <div class="card mb-4">
+            <div class="d-flex gap-3 items-center">
+                <input type="month" id="month" class="form-input" style="max-width: 200px;">
+                <button onclick="load()" class="btn btn-primary">Filter</button>
+                <button onclick="window.print()" class="btn btn-outline"><i class="fas fa-print"></i></button>
+            </div>
+        </div>
+
+        <div class="card p-0 overflow-hidden animate-up">
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>Tanggal</th><th>Nama</th><th>Status</th><th>Ket</th></tr></thead>
+                    <tbody id="tb"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <style>@media print{.sidebar,.admin-topbar,.btn,input{display:none!important}.main-content{margin:0;padding:0}.card{border:none;box-shadow:none}}</style>
+    <script src="../js/storage.js"></script><script src="../js/app.js"></script>
+    <script>
+        checkAuth('admin');
+        document.getElementById('month').value = new Date().toISOString().slice(0,7);
+        function load(){
+            const m = document.getElementById('month').value;
+            const tb = document.getElementById('tb'); tb.innerHTML='';
+            const d = Storage.getAtt().filter(a=>a.date.startsWith(m)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+            if(d.length===0) tb.innerHTML='<tr><td colspan="4" class="text-center p-4">Tidak ada data</td></tr>';
+            d.forEach(r=>{
+                const u = Storage.getUsers().find(x=>x.id===r.uid);
+                tb.innerHTML+=`<tr><td>${Utils.fmtDate(r.date)}</td><td class="font-bold">${u?u.name:'-'}</td><td>${r.status}</td><td>${r.notes||'-'}</td></tr>`
+            });
+        }
+        load();
+    </script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Riwayat - Absensi Guru</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="guru-page">
+    <header class="page-header">
+        <a href="home.html" class="btn-back">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <h1>Riwayat Presensi</h1>
+        <div style="width: 44px;"></div>
+    </header>
+    
+    <main class="page-content has-bottom-nav">
+        <div class="filter-row">
+            <select id="filterMonth" class="form-select">
+                <option value="0">Januari</option>
+                <option value="1">Februari</option>
+                <option value="2">Maret</option>
+                <option value="3">April</option>
+                <option value="4">Mei</option>
+                <option value="5">Juni</option>
+                <option value="6">Juli</option>
+                <option value="7">Agustus</option>
+                <option value="8">September</option>
+                <option value="9">Oktober</option>
+                <option value="10">November</option>
+                <option value="11">Desember</option>
+            </select>
+            <select id="filterYear" class="form-select"></select>
+        </div>
+        
+        <div class="card summary-card">
+            <div class="summary-item">
+                <span class="summary-value text-success" id="sumHadir">0</span>
+                <span class="summary-label">Hadir</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-value text-warning" id="sumTerlambat">0</span>
+                <span class="summary-label">Terlambat</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-value text-danger" id="sumIzin">0</span>
+                <span class="summary-label">Izin</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-value text-primary" id="sumPersentase">0%</span>
+                <span class="summary-label">Kehadiran</span>
+            </div>
+        </div>
+        
+        <div class="history-list" id="historyList"></div>
+        
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <i class="fas fa-calendar-times"></i>
+            <h3>Tidak Ada Data</h3>
+            <p>Belum ada riwayat presensi pada bulan ini.</p>
+        </div>
+    </main>
+    
+    <nav class="bottom-nav">
+        <a href="home.html" class="nav-item">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </a>
+        <a href="riwayat.html" class="nav-item active">
+            <i class="fas fa-history"></i>
+            <span>Riwayat</span>
+        </a>
+        <a href="profil.html" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>Profil</span>
+        </a>
+        <a href="#" class="nav-item" id="btnLogout">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Keluar</span>
+        </a>
+    </nav>
+    
+    <script src="../js/storage.js"></script>
+    <script src="../js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const session = getSession();
+            if (!session || session.role !== 'guru') {
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            // Generate year options
+            const filterYear = document.getElementById('filterYear');
+            const currentYear = new Date().getFullYear();
+            for (let y = currentYear; y >= currentYear - 2; y--) {
+                filterYear.innerHTML += `<option value="${y}">${y}</option>`;
+            }
+            
+            // Set current month/year
+            const filterMonth = document.getElementById('filterMonth');
+            filterMonth.value = new Date().getMonth();
+            filterYear.value = currentYear;
+            
+            loadHistory();
+            
+            filterMonth.addEventListener('change', loadHistory);
+            filterYear.addEventListener('change', loadHistory);
+            
+            document.getElementById('btnLogout').addEventListener('click', function(e) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Logout?',
+                    text: 'Apakah Anda yakin ingin keluar?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Ya, Keluar',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        clearSession();
+                        window.location.href = '../login.html';
+                    }
+                });
+            });
+            
+            function loadHistory() {
+                const month = parseInt(filterMonth.value);
+                const year = parseInt(filterYear.value);
+                const userId = session.id;
+                
+                const attendances = getAttendances().filter(a => {
+                    const date = new Date(a.tanggal);
+                    return a.userId === userId && 
+                           date.getMonth() === month && 
+                           date.getFullYear() === year;
+                });
+                
+                const leaves = getLeaves().filter(l => {
+                    const date = new Date(l.tanggal);
+                    return l.userId === userId && 
+                           date.getMonth() === month && 
+                           date.getFullYear() === year;
+                });
+                
+                // Calculate summary
+                const hadir = attendances.filter(a => a.status === 'hadir').length;
+                const terlambat = attendances.filter(a => a.status === 'terlambat').length;
+                const izin = leaves.filter(l => l.status === 'approved').length;
+                
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                let workingDays = 0;
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const day = new Date(year, month, d).getDay();
+                    if (day !== 0) workingDays++;
+                }
+                
+                const totalHadir = hadir + terlambat;
+                const persentase = workingDays > 0 ? Math.round((totalHadir / workingDays) * 100) : 0;
+                
+                document.getElementById('sumHadir').textContent = hadir;
+                document.getElementById('sumTerlambat').textContent = terlambat;
+                document.getElementById('sumIzin').textContent = izin;
+                document.getElementById('sumPersentase').textContent = persentase + '%';
+                
+                // Combine and sort
+                const combined = [
+                    ...attendances.map(a => ({ ...a, type: 'attendance' })),
+                    ...leaves.map(l => ({ ...l, type: 'leave' }))
+                ].sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+                
+                const historyList = document.getElementById('historyList');
+                const emptyState = document.getElementById('emptyState');
+                
+                if (combined.length === 0) {
+                    historyList.innerHTML = '';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+                
+                emptyState.style.display = 'none';
+                const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+                
+                historyList.innerHTML = combined.map(item => {
+                    const date = new Date(item.tanggal);
+                    const dateStr = formatDate(date);
+                    
+                    if (item.type === 'attendance') {
+                        const statusClass = item.status === 'hadir' ? 'success' : 'warning';
+                        const statusText = item.status === 'hadir' ? 'Hadir' : 'Terlambat';
+                        const validatedBadge = item.validated 
+                            ? '<span class="badge badge-success">Tervalidasi</span>'
+                            : '<span class="badge badge-pending">Menunggu Validasi</span>';
+                        
+                        return `
+                            <div class="history-item">
+                                <div class="history-date">
+                                    <span class="day">${date.getDate()}</span>
+                                    <span class="month">${monthNames[date.getMonth()]}</span>
+                                </div>
+                                <div class="history-info">
+                                    <h4>${dateStr}</h4>
+                                    <p><i class="fas fa-clock"></i> Jam Masuk: ${item.jamMasuk}</p>
+                                    <div class="history-badges">
+                                        <span class="badge badge-${statusClass}">${statusText}</span>
+                                        ${validatedBadge}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        let statusClass = 'pending';
+                        let statusText = 'Menunggu';
+                        
+                        if (item.status === 'approved') {
+                            statusClass = 'success';
+                            statusText = 'Disetujui';
+                        } else if (item.status === 'rejected') {
+                            statusClass = 'danger';
+                            statusText = 'Ditolak';
+                        }
+                        
+                        return `
+                            <div class="history-item">
+                                <div class="history-date leave">
+                                    <span class="day">${date.getDate()}</span>
+                                    <span class="month">${monthNames[date.getMonth()]}</span>
+                                </div>
+                                <div class="history-info">
+                                    <h4>${dateStr}</h4>
+                                    <p><i class="fas fa-file-alt"></i> ${item.jenis}</p>
+                                    <div class="history-badges">
+                                        <span class="badge badge-info">Izin</span>
+                                        <span class="badge badge-${statusClass}">${statusText}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+            }
+        });
+    </script>
+</body>
+</html>
